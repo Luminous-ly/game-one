@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>开始默数 · AI 光影自动数数</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  html, body {
+    width:100%; height:100%; overflow:hidden;
+    font-family:"Yuanti SC","PingFang SC","Microsoft YaHei","Hiragino Sans GB",system-ui,sans-serif;
+    background:#FFF8F0;
+    user-select:none; -webkit-user-select:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+
+  #stage { position:fixed; inset:0; display:block; z-index:1; }
+  .hud   { position:fixed; inset:0; z-index:10; pointer-events:none; }
+
+  /* ============ 左上角标签 ============ */
+  .brand {
+    position:absolute; top:2.8vh; left:2.6vw;
+    display:flex; align-items:center; gap:.6vw;
+    padding:.9vh 1.5vw;
+    background:rgba(255,255,255,.82);
+    border:2.5px solid #fff;
+    border-radius:999px;
+    box-shadow:0 8px 24px rgba(210,165,130,.22);
+    color:#A5764E; font-weight:800;
+    font-size:clamp(13px,1.22vw,21px);
+    letter-spacing:.05em;
+    backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+  }
+  .brand-dot {
+    width:clamp(9px,.72vw,14px); height:clamp(9px,.72vw,14px);
+    border-radius:50%; background:#6FD8B0;
+    box-shadow:0 0 12px #6FD8B0;
+    animation:breath 1.6s ease-in-out infinite;
+  }
+  @keyframes breath {
+    0%,100% { transform:scale(1); opacity:1; }
+    50%     { transform:scale(.6); opacity:.45; }
+  }
+
+  /* ============ 右上角倒计时 ============ */
+  .timer {
+    position:absolute; top:2.4vh; right:2.6vw;
+    width:clamp(86px,8vw,130px); height:clamp(86px,8vw,130px);
+    opacity:0; transform:scale(.6);
+    transition:opacity .35s ease, transform .35s ease;
+  }
+  .timer.show { opacity:1; transform:scale(1); }
+  .timer svg { width:100%; height:100%; transform:rotate(-90deg); display:block; }
+  .ring-bg { fill:none; stroke:rgba(210,170,130,.22); stroke-width:8; }
+  .ring-fg {
+    fill:none; stroke:#6FD8B0; stroke-width:8; stroke-linecap:round;
+    filter:drop-shadow(0 0 6px currentColor);
+  }
+  .timer-num {
+    position:absolute; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    font-size:clamp(28px,2.8vw,46px); font-weight:900;
+    color:#6FD8B0; text-shadow:0 2px 0 #fff;
+    font-variant-numeric:tabular-nums;
+  }
+
+  /* ============ 开始按钮区 ============ */
+  .start-wrap {
+    position:absolute; left:50%; bottom:11vh;
+    transform:translateX(-50%);
+    display:flex; flex-direction:column; align-items:center;
+    gap:1.8vh;
+    pointer-events:auto;
+    transition:opacity .5s ease, transform .5s cubic-bezier(.2,1.4,.4,1);
+  }
+  .start-wrap.hide {
+    opacity:0; transform:translateX(-50%) scale(.82);
+    pointer-events:none;
+  }
+
+  .start-tip {
+    font-size:clamp(15px,1.45vw,25px);
+    font-weight:800; color:#C0946A;
+    letter-spacing:.2em; text-indent:.2em;
+    animation:tipFloat 2.4s ease-in-out infinite;
+  }
+  @keyframes tipFloat {
+    0%,100% { transform:translateY(0); opacity:.85; }
+    50%     { transform:translateY(-6px); opacity:1; }
+  }
+
+  .btn-start {
+    padding:2.1vh 5.2vw;
+    font-size:clamp(24px,2.7vw,48px);
+    font-weight:900; font-family:inherit;
+    color:#fff;
+    letter-spacing:.16em; text-indent:.16em;
+    background:linear-gradient(180deg,#FFB6C9,#FF8FAE);
+    border:6px solid #fff;
+    border-radius:999px;
+    box-shadow:0 11px 0 #E8748F,
+               0 22px 44px rgba(255,140,170,.42),
+               0 0 0 11px rgba(255,255,255,.36);
+    cursor:pointer;
+    animation:btnBeat 2.1s ease-in-out infinite;
+    transition:transform .12s, box-shadow .12s, filter .2s;
+  }
+  @keyframes btnBeat {
+    0%,100% { transform:scale(1); }
+    50%     { transform:scale(1.045); }
+  }
+  .btn-start:hover { filter:brightness(1.05); }
+  .btn-start:active {
+    transform:translateY(7px) scale(1.01);
+    box-shadow:0 4px 0 #E8748F,
+               0 10px 20px rgba(255,140,170,.38),
+               0 0 0 11px rgba(255,255,255,.36);
+    animation:none;
+  }
+
+  /* ============ 底部提示 ============ */
+  .hint {
+    position:absolute; left:50%; bottom:4.5vh;
+    transform:translateX(-50%) translateY(14px);
+    opacity:0;
+    padding:1vh 2.8vw;
+    border-radius:999px;
+    background:rgba(255,255,255,.88);
+    border:2.5px solid #FFE4C8;
+    color:#B08055; font-weight:800;
+    font-size:clamp(14px,1.35vw,23px);
+    letter-spacing:.2em; text-indent:.2em; white-space:nowrap;
+    box-shadow:0 10px 28px rgba(210,165,120,.24);
+    backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+    transition:opacity .4s ease, transform .4s ease,
+               color .3s, border-color .3s, box-shadow .3s;
+  }
+  .hint.show { opacity:1; transform:translateX(-50%) translateY(0); }
+  .hint.scanning {
+    color:#3FB98E;
+    border-color:#A8EBD2;
+    box-shadow:0 10px 30px rgba(80,200,160,.28);
+  }
+
+  /* ============ 中央总数面板 ============ */
+  .total-panel {
+    position:absolute; left:50%; top:50%;
+    transform:translate(-50%,-50%) scale(.45);
+    opacity:0; pointer-events:none;
+    display:flex; flex-direction:column; align-items:center;
+    padding:3.4vh 6.5vw 3.6vh;
+    border-radius:4.5vh;
+    background:radial-gradient(circle at 50% 32%,
+                rgba(255,255,255,.98), rgba(255,246,232,.98));
+    border:6px solid #fff;
+    box-shadow:0 30px 80px rgba(200,150,105,.34),
+               0 0 0 12px rgba(255,255,255,.42),
+               inset 0 0 60px rgba(255,224,185,.55);
+    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    transition:opacity .5s cubic-bezier(.2,1.5,.4,1),
+               transform .5s cubic-bezier(.2,1.6,.4,1);
+  }
+  .total-panel.show {
+    opacity:1; transform:translate(-50%,-50%) scale(1);
+  }
+
+  .total-label {
+    font-size:clamp(16px,1.6vw,29px);
+    font-weight:800; letter-spacing:.44em; text-indent:.44em;
+    color:#C89A6E; margin-bottom:1vh;
+  }
+  .total-num {
+    font-size:clamp(84px,13vw,200px);
+    font-weight:900; line-height:1;
+    color:#FF9A6B;
+    text-shadow:0 7px 0 #FFE3C6, 0 18px 40px rgba(255,150,100,.42);
+    font-variant-numeric:tabular-nums;
+    animation:numPop .68s cubic-bezier(.2,1.7,.4,1) both;
+  }
+  @keyframes numPop {
+    0%   { transform:scale(.32); opacity:0; }
+    100% { transform:scale(1);  opacity:1; }
+  }
+  .total-sub {
+    margin-top:1vh;
+    font-size:clamp(15px,1.45vw,25px);
+    font-weight:800; letter-spacing:.28em; text-indent:.28em;
+    color:#C89A6E;
+  }
+
+  /* ============ 再来一次按钮 ============ */
+  .btn-again {
+    margin-top:2.6vh;
+    padding:1.4vh 3.6vw;
+    font-size:clamp(17px,1.75vw,31px);
+    font-weight:900; font-family:inherit;
+    color:#fff;
+    letter-spacing:.14em; text-indent:.14em;
+    background:linear-gradient(180deg,#8FE3C0,#4FC79A);
+    border:4px solid #fff;
+    border-radius:999px;
+    box-shadow:0 8px 0 #3AA87F, 0 16px 32px rgba(70,195,150,.4);
+    cursor:pointer;
+    opacity:0; transform:translateY(10px);
+    transition:opacity .4s ease .3s, transform .4s ease .3s,
+               box-shadow .12s, filter .2s;
+    pointer-events:none;
+  }
+  .total-panel.show .btn-again {
+    opacity:1; transform:translateY(0);
+    pointer-events:auto;
+  }
+  .btn-again:active {
+    transform:translateY(6px);
+    box-shadow:0 2px 0 #3AA87F, 0 8px 16px rgba(70,195,150,.35);
+  }
+
+  /* ============ 星光特效层 ============ */
+  .fx-layer { position:absolute; inset:0; overflow:hidden; pointer-events:none; }
+  .fx-star {
+    position:absolute;
+    font-size:clamp(20px,2vw,36px);
+    transform:translate(-50%,-50%);
+    animation:starFly 1.6s cubic-bezier(.15,.9,.3,1) forwards;
+    will-change:transform,opacity;
+  }
+  @keyframes starFly {
+    0%   { opacity:1; transform:translate(-50%,-50%) scale(.3) rotate(0deg); }
+    100% { opacity:0;
+           transform:translate(calc(-50% + var(--tx)), calc(-50% + var(--ty)))
+                     scale(1.45) rotate(var(--rot)); }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="stage"></canvas>
+
+<div class="hud">
+
+  <div class="brand"><span class="brand-dot"></span>AI 智慧课堂 · 默数练习</div>
+
+  <div class="timer" id="timer">
+    <svg viewBox="0 0 120 120">
+      <circle class="ring-bg" cx="60" cy="60" r="52"></circle>
+      <circle class="ring-fg" id="ringFg" cx="60" cy="60" r="52"></circle>
+    </svg>
+    <div class="timer-num" id="timerNum">10</div>
+  </div>
+
+  <div class="start-wrap" id="startWrap">
+    <div class="start-tip">准备好啦，我们一起来默数吧～</div>
+    <button class="btn-start" id="startBtn" type="button">开始默数</button>
+  </div>
+
+  <div class="hint" id="hint">眼睛看 · 心里数 · 不出声 · 数准确</div>
+
+  <div class="total-panel" id="totalPanel">
+    <div class="total-label">芸豆总数</div>
+    <div class="total-num" id="totalNum">0</div>
+    <div class="total-sub">颗芸豆</div>
+    <button class="btn-again" id="againBtn" type="button">再来一次</button>
+  </div>
+
+  <div class="fx-layer" id="fxLayer"></div>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ==================== 可调参数 ==================== */
+  const COUNT_TIME = 10;   // 默数倒计时（秒）
+  const HOLD_TIME  = 2.0;  // 光影在每颗芸豆上停留（秒）
+
+  /* ==================== DOM ==================== */
+  const canvas      = document.getElementById('stage');
+  const ctx         = canvas.getContext('2d');
+  const ringFg      = document.getElementById('ringFg');
+  const timerNum    = document.getElementById('timerNum');
+  const timerEl     = document.getElementById('timer');
+  const startWrap   = document.getElementById('startWrap');
+  const startBtn    = document.getElementById('startBtn');
+  const hintEl      = document.getElementById('hint');
+  const totalPanel  = document.getElementById('totalPanel');
+  const totalNumEl  = document.getElementById('totalNum');
+  const againBtn    = document.getElementById('againBtn');
+  const fxLayer     = document.getElementById('fxLayer');
+
+  const RING_LEN = 2 * Math.PI * 52;
+  ringFg.style.strokeDasharray  = RING_LEN;
+  ringFg.style.strokeDashoffset = RING_LEN;
+
+  /* ==================== 全局状态 ==================== */
+  let W = 0, H = 0, DPR = 1;
+  let bounds = { x0:0, x1:0, y0:0, y1:0 };
+  let decor = { blobs: [], clouds: [], dots: [] };
+
+  let beans = [];
+  let total = 0;
+
+  /* idle → count → scan → reveal */
+  let state = 'idle';
+  let time = 0;
+  let countDown = COUNT_TIME;
+
+  let scanIdx   = 0;
+  let scanHold  = 0;
+  let arrived   = false;
+  let revealT   = 0;
+
+  const halo = { x:0, y:0, r:30, alpha:0, visible:false };
+
+  /* ==================== 工具函数 ==================== */
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+  function rand(a, b) { return a + Math.random() * (b - a); }
+  function easeOutBack(x) {
+    const c1 = 1.70158, c3 = c1 + 1;
+    return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
+  }
+
+  /* ==================== 尺寸自适应 ==================== */
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth;
+    H = window.innerHeight;
+
+    canvas.width  = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    canvas.style.width  = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+    bounds = {
+      x0: W * 0.10,
+      x1: W * 0.90,
+      y0: H * 0.21,
+      y1: H * 0.80
+    };
+
+    buildDecor();
+    clampBeans();
+  }
+
+  function clampBeans() {
+    for (const b of beans) {
+      const rr = b.r * 1.35;
+      b.x = clamp(b.x, bounds.x0 + rr, bounds.x1 - rr);
+      b.y = clamp(b.y, bounds.y0 + rr, bounds.y1 - rr);
+    }
+  }
+
+  /* ==================== 背景装饰 ==================== */
+  function buildDecor() {
+    const palette = [
+      'rgba(255,206,224,0.42)',
+      'rgba(255,231,196,0.48)',
+      'rgba(198,240,224,0.40)',
+      'rgba(214,224,255,0.36)',
+      'rgba(255,222,208,0.38)'
+    ];
+
+    decor.blobs = [];
+    decor.clouds = [];
+    decor.dots = [];
+
+    for (let i = 0; i < 8; i++) {
+      decor.blobs.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: Math.min(W, H) * rand(0.14, 0.30),
+        color: palette[i % palette.length],
+        phase: Math.random() * Math.PI * 2,
+        speed: rand(0.10, 0.26)
+      });
+    }
+
+    for (let i = 0; i < 5; i++) {
+      decor.clouds.push({
+        x0: Math.random() * (W + 460) - 230,
+        y: H * rand(0.05, 0.25),
+        s: rand(0.55, 1.05),
+        speed: rand(6, 15),
+        alpha: rand(0.55, 0.88)
+      });
+    }
+
+    for (let i = 0; i < 34; i++) {
+      decor.dots.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: rand(1.6, 4.2),
+        phase: Math.random() * Math.PI * 2,
+        speed: rand(0.6, 1.7)
+      });
+    }
+  }
+
+  /* ==================== 随机撒豆 ==================== */
+  function distribute(n, groups) {
+    const base = Math.floor(n / groups);
+    const rem  = n % groups;
+    const out  = [];
+    for (let i = 0; i < groups; i++) out.push(base + (i < rem ? 1 : 0));
+    return out;
+  }
+
+  function layoutBeans() {
+    beans = [];
+
+    const b = bounds;
+    const areaW = b.x1 - b.x0;
+    const areaH = b.y1 - b.y0;
+    if (areaW <= 40 || areaH <= 40) return;
+
+    const n = total;
+    const mode = Math.floor(Math.random() * 3);   // 0 散点 / 1 横排 / 2 竖排
+
+    const pts = [];
+    let r = 30;
+
+    /* ---------- 散点（疏密随机） ---------- */
+    if (mode === 0) {
+      let baseR = Math.sqrt((areaW * areaH) / (n * 21));
+      baseR = clamp(baseR, 24, Math.min(areaW, areaH) * 0.125);
+
+      const density = rand(2.4, 3.4);
+      let minD = baseR * density;
+
+      const margin = baseR * 1.35;
+      const px0 = b.x0 + margin, px1 = b.x1 - margin;
+      const py0 = b.y0 + margin, py1 = b.y1 - margin;
+
+      let tries = 0;
+      while (pts.length < n && tries < 9000) {
+        tries++;
+        const x = rand(px0, px1);
+        const y = rand(py0, py1);
+        let ok = true;
+        for (let i = 0; i < pts.length; i++) {
+          const dx = pts[i].x - x, dy = pts[i].y - y;
+          if (dx * dx + dy * dy < minD * minD) { ok = false; break; }
+        }
+        if (ok) pts.push({ x: x, y: y });
+        else if (tries % 300 === 0) minD = Math.max(minD * 0.88, baseR * 2.0);
+      }
+      while (pts.length < n) {
+        pts.push({ x: rand(px0, px1), y: rand(py0, py1) });
+      }
+      r = baseR;
+    }
+
+    /* ---------- 横排 / 竖排网格 ---------- */
+    else {
+      const horizontal = (mode === 1);
+
+      let cols = horizontal
+        ? Math.ceil(Math.sqrt(n * 1.8))
+        : Math.max(1, Math.round(Math.sqrt(n / 1.8)));
+      cols = clamp(cols, 1, n);
+
+      const rows = Math.ceil(n / cols);
+      const perRow = distribute(n, rows);
+
+      const maxInRow = Math.max.apply(null, perRow);
+      const cellW = areaW / maxInRow;
+      const cellH = areaH / rows;
+      r = clamp(Math.min(cellW, cellH) * 0.33, 20, Math.min(areaW, areaH) * 0.12);
+
+      for (let ri = 0; ri < rows; ri++) {
+        const cnt = perRow[ri];
+        const colW = areaW / cnt;
+        const rowH = areaH / rows;
+
+        for (let ci = 0; ci < cnt; ci++) {
+          const jx = (Math.random() - 0.5) * colW * 0.20;
+          const jy = (Math.random() - 0.5) * rowH * 0.20;
+
+          pts.push({
+            x: b.x0 + colW * (ci + 0.5) + jx,
+            y: b.y0 + rowH * (ri + 0.5) + jy
+          });
+        }
+      }
+    }
+
+    /* ---------- 生成芸豆 ---------- */
+    for (let i = 0; i < pts.length; i++) {
+      const ang = Math.random() * Math.PI * 2;
+      const spd = rand(30, 62);          // 缓慢漂移，动态打乱
+
+      beans.push({
+        x: pts[i].x,
+        y: pts[i].y,
+        vx: Math.cos(ang) * spd,
+        vy: Math.sin(ang) * spd,
+        r: r,
+        rot: rand(-0.5, 0.5),
+        vr: rand(-0.6, 0.6),
+        phase: rand(0, Math.PI * 2),
+        bob: rand(1.8, 3.8),
+        spawnDelay: i * 0.055 + rand(0, 0.06),
+        scale: 0,
+        dx: pts[i].x,
+        dy: pts[i].y,
+        counted: false,
+        countedAt: 0,
+        number: 0
+      });
+    }
+  }
+
+  /* ==================== 开始新一轮 ==================== */
+  function startRound() {
+    // 随机 1~9，尽量避免与上轮重复
+    let n, guard = 0;
+    do {
+      n = 1 + Math.floor(Math.random() * 9);
+      guard++;
+    } while (n === total && guard < 15);
+    total = n;
+
+    time      = 0;
+    countDown = COUNT_TIME;
+    scanIdx   = 0;
+    scanHold  = 0;
+    arrived   = false;
+    revealT   = 0;
+
+    halo.visible = false;
+    halo.alpha   = 0;
+
+    // UI
+    totalPanel.classList.remove('show');
+    timerEl.classList.add('show');
+    hintEl.textContent = '眼睛看 · 心里数 · 不出声 · 数准确';
+    hintEl.classList.remove('scanning');
+    hintEl.classList.add('show');
+
+    ringFg.style.strokeDashoffset = RING_LEN;
+    ringFg.style.stroke  = '#6FD8B0';
+    timerNum.style.color = '#6FD8B0';
+    timerNum.textContent = COUNT_TIME;
+
+    layoutBeans();
+    state = 'count';
+  }
+
+  /* ==================== 倒计时 UI ==================== */
+  function updateTimerUI() {
+    const frac = clamp(countDown / COUNT_TIME, 0, 1);
+    ringFg.style.strokeDashoffset = RING_LEN * (1 - frac);
+
+    let color = '#6FD8B0';
+    if (frac <= 0.3)      color = '#FF7A7A';
+    else if (frac <= 0.6) color = '#FFC24D';
+
+    ringFg.style.stroke  = color;
+    timerNum.style.color = color;
+    timerNum.textContent = Math.max(0, Math.ceil(countDown - 0.001));
+  }
+
+  /* ==================== 进入光影数数 ==================== */
+  function startScan() {
+    state = 'scan';
+    scanIdx  = 0;
+    scanHold = 0;
+    arrived  = false;
+
+    timerEl.classList.remove('show');
+    hintEl.textContent = 'AI 光影来帮忙，一颗一颗慢慢数～';
+    hintEl.classList.add('scanning', 'show');
+
+    halo.visible = true;
+    halo.alpha   = 0;
+    halo.r       = beans.length ? beans[0].r : 30;
+    halo.x       = W * 0.5;
+    halo.y       = H + 240;
+
+    // 豆子迅速定格
+    for (const b of beans) {
+      b.vx *= 0.12;
+      b.vy *= 0.12;
+      b.vr *= 0.12;
+    }
+  }
+
+  /* ==================== 星光爆发 ==================== */
+  function burstStars() {
+    const cx = W / 2, cy = H * 0.44;
+    const icons = ['⭐', '✨', '🌟', '💫', '🎉', '🫘'];
+
+    for (let i = 0; i < 42; i++) {
+      const el = document.createElement('div');
+      el.className = 'fx-star';
+      el.textContent = icons[i % icons.length];
+      el.style.left = cx + 'px';
+      el.style.top  = cy + 'px';
+
+      const ang  = Math.random() * Math.PI * 2;
+      const dist = rand(140, Math.min(W, H) * 0.55);
+
+      el.style.setProperty('--tx', (Math.cos(ang) * dist).toFixed(1) + 'px');
+      el.style.setProperty('--ty', (Math.sin(ang) * dist).toFixed(1) + 'px');
+      el.style.setProperty('--rot', rand(-420, 420).toFixed(0) + 'deg');
+      el.style.animationDelay = (Math.random() * 0.18).toFixed(2) + 's';
+
+      fxLayer.appendChild(el);
+      setTimeout(function () { el.remove(); }, 2400);
+    }
+  }
+
+  /* ==================== 显示总数 ==================== */
+  function showTotal() {
+    state = 'reveal';
+    revealT = 0;
+
+    totalNumEl.textContent = total;
+    totalNumEl.style.animation = 'none';
+    void totalNumEl.offsetWidth;
+    totalNumEl.style.animation = '';
+
+    totalPanel.classList.add('show');
+    hintEl.classList.remove('show');
+    halo.visible = false;
+
+    burstStars();
+  }
+
+  /* ==================== 芸豆物理（缓慢漂移 + 防重叠） ==================== */
+  function stepBeans(dt, damping) {
+    const k = damping < 1 ? Math.pow(damping, dt) : 1;
+
+    for (const b of beans) {
+      if (k < 1) { b.vx *= k; b.vy *= k; b.vr *= k; }
+
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      b.rot += b.vr * dt;
+
+      const rr = b.r * 1.28;
+      if (b.x < bounds.x0 + rr)      { b.x = bounds.x0 + rr; b.vx =  Math.abs(b.vx) * 0.96; }
+      else if (b.x > bounds.x1 - rr) { b.x = bounds.x1 - rr; b.vx = -Math.abs(b.vx) * 0.96; }
+      if (b.y < bounds.y0 + rr)      { b.y = bounds.y0 + rr; b.vy =  Math.abs(b.vy) * 0.96; }
+      else if (b.y > bounds.y1 - rr) { b.y = bounds.y1 - rr; b.vy = -Math.abs(b.vy) * 0.96; }
+    }
+
+    // 柔和分离，保证不重叠、清晰可数
+    for (let i = 0; i < beans.length; i++) {
+      for (let j = i + 1; j < beans.length; j++) {
+        const a = beans[i], c = beans[j];
+        const dx = c.x - a.x, dy = c.y - a.y;
+        const d2 = dx * dx + dy * dy;
+        const minD = (a.r + c.r) * 1.30;
+
+        if (d2 < minD * minD && d2 > 0.0001) {
+          const d = Math.sqrt(d2);
+          const overlap = (minD - d) * 0.5;
+          const nx = dx / d, ny = dy / d;
+
+          a.x -= nx * overlap;  a.y -= ny * overlap;
+          c.x += nx * overlap;  c.y += ny * overlap;
+
+          const rel = (a.vx - c.vx) * nx + (a.vy - c.vy) * ny;
+          if (rel > 0) {
+            a.vx -= rel * nx * 0.5;  a.vy -= rel * ny * 0.5;
+            c.vx += rel * nx * 0.5;  c.vy += rel * ny * 0.5;
+          }
+        }
+      }
+    }
+  }
+
+  /* ==================== 计算绘制位置 ==================== */
+  function computePositions() {
+    for (const b of beans) {
+      if (state === 'count') {
+        b.dx = b.x + Math.cos(time * 1.1 + b.phase) * b.bob * 0.55;
+        b.dy = b.y + Math.sin(time * 1.5 + b.phase) * b.bob;
+      } else {
+        b.dx = b.x;
+        b.dy = b.y;
+      }
+    }
+  }
+
+  /* ==================== 主更新 ==================== */
+  function update(dt) {
+    time += dt;
+
+    /* ---------- 倒计时阶段 ---------- */
+    if (state === 'count') {
+      countDown -= dt;
+      if (countDown <= 0) {
+        countDown = 0;
+        updateTimerUI();
+        startScan();
+      } else {
+        updateTimerUI();
+        stepBeans(dt, 1);
+      }
+    }
+
+    /* ---------- 光影自动数数 ---------- */
+    else if (state === 'scan') {
+      stepBeans(dt, 0.02);            // 迅速定格
+
+      const tgt = beans[scanIdx];
+
+      if (!tgt) {
+        showTotal();
+      } else {
+        const k = 1 - Math.pow(0.0006, dt);
+        halo.x += (tgt.dx - halo.x) * k;
+        halo.y += (tgt.dy - halo.y) * k;
+        halo.r += (tgt.r  - halo.r)  * k;
+        halo.alpha = Math.min(1, halo.alpha + dt * 2.6);
+
+        const dist = Math.hypot(tgt.dx - halo.x, tgt.dy - halo.y);
+
+        if (!arrived && dist < Math.max(5, tgt.r * 0.42)) {
+          arrived = true;
+          scanHold = 0;
+        }
+
+        if (arrived) {
+          scanHold += dt;
+          if (scanHold >= HOLD_TIME) {
+            tgt.counted   = true;
+            tgt.countedAt = 0;
+            tgt.number    = scanIdx + 1;
+
+            scanIdx++;
+            arrived  = false;
+            scanHold = 0;
+
+            if (scanIdx >= beans.length) showTotal();
+          }
+        }
+      }
+    }
+
+    /* ---------- 揭晓阶段 ---------- */
+    else if (state === 'reveal') {
+      revealT += dt;
+      stepBeans(dt, 0.05);
+    }
+
+    /* ---------- 已数徽章计时 ---------- */
+    for (const b of beans) {
+      if (b.counted) b.countedAt += dt;
+      const st = clamp((time - b.spawnDelay) / 0.5, 0, 1);
+      b.scale = st <= 0 ? 0 : easeOutBack(st);
+    }
+  }
+
+  /* ==================== 背景绘制 ==================== */
+  function drawBackground() {
+    // 温馨底色
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0,    '#FFFCF7');
+    g.addColorStop(0.42, '#FFF3E6');
+    g.addColorStop(0.78, '#FFEAE4');
+    g.addColorStop(1,    '#F6EFE2');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    // 柔和光斑
+    for (const bl of decor.blobs) {
+      const bx = bl.x + Math.sin(time * bl.speed + bl.phase) * 48;
+      const by = bl.y + Math.cos(time * bl.speed * 0.8 + bl.phase) * 36;
+
+      const rg = ctx.createRadialGradient(bx, by, 0, bx, by, bl.r);
+      rg.addColorStop(0, bl.color);
+      rg.addColorStop(1, 'rgba(255,255,255,0)');
+
+      ctx.fillStyle = rg;
+      ctx.beginPath();
+      ctx.arc(bx, by, bl.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 云朵
+    for (const c of decor.clouds) {
+      const span = W + 460;
+      const cx = ((c.x0 + time * c.speed) % span + span) % span - 230;
+      drawCloud(cx, c.y, c.s, c.alpha);
+    }
+
+    // 漂浮小点
+    for (const d of decor.dots) {
+      const a = 0.30 + 0.30 * Math.sin(time * d.speed + d.phase);
+      ctx.beginPath();
+      ctx.arc(d.x, d.y + Math.sin(time * d.speed * 0.7 + d.phase) * 8, d.r, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,' + a.toFixed(3) + ')';
+      ctx.fill();
+    }
+
+    // 底部草地波浪
+    ctx.beginPath();
+    ctx.moveTo(0, H);
+    ctx.lineTo(0, H - 54);
+    ctx.quadraticCurveTo(W * 0.22, H - 108, W * 0.46, H - 58);
+    ctx.quadraticCurveTo(W * 0.70, H - 10, W * 0.87, H - 64);
+    ctx.quadraticCurveTo(W * 0.95, H - 94, W, H - 68);
+    ctx.lineTo(W, H);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(178,229,190,0.44)';
+    ctx.fill();
+
+    // 草地小圆点
+    for (let i = 0; i < 16; i++) {
+      const px = (i / 16) * W + 16;
+      const py = H - 36 - Math.sin(i * 1.7) * 10;
+      ctx.beginPath();
+      ctx.arc(px, py, 3.2, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.78)';
+      ctx.fill();
+    }
+  }
+
+  function drawCloud(x, y, s, alpha) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(s, s);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = '#FFFFFF';
+
+    const parts = [
+      { x: -48, y: 14, r: 28 },
+      { x: -14, y: -8, r: 37 },
+      { x: 28,  y: 4,  r: 31 },
+      { x: 62,  y: 16, r: 23 }
+    ];
+    for (const p of parts) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  /* ==================== 芸豆路径 ==================== */
+  function beanPath(w, h) {
+    ctx.beginPath();
+    ctx.moveTo(0, -h);
+    ctx.bezierCurveTo( 0.50 * w, -h * 1.00,  0.92 * w, -h * 0.80,  0.97 * w, -h * 0.50);
+    ctx.bezierCurveTo( 0.99 * w, -h * 0.28,  0.88 * w, -h * 0.06,  0.62 * w,  0);
+    ctx.bezierCurveTo( 0.88 * w,  h * 0.06,  0.99 * w,  h * 0.28,  0.97 * w,  h * 0.50);
+    ctx.bezierCurveTo( 0.92 * w,  h * 0.80,  0.50 * w,  h * 1.00,  0,        h);
+    ctx.bezierCurveTo(-0.55 * w,  h * 1.00, -0.98 * w,  h * 0.75, -1.00 * w,  h * 0.32);
+    ctx.bezierCurveTo(-1.02 * w,  h * 0.05, -1.02 * w, -h * 0.05, -1.00 * w, -h * 0.32);
+    ctx.bezierCurveTo(-0.98 * w, -h * 0.75, -0.55 * w, -h * 1.00,  0,       -h);
+    ctx.closePath();
+  }
+
+  /* ==================== 绘制芸豆 ==================== */
+  function drawBean(b) {
+    if (b.scale <= 0.012) return;
+
+    const w = b.r;
+    const h = b.r * 1.13;
+
+    ctx.save();
+    ctx.translate(b.dx, b.dy);
+    ctx.rotate(b.rot);
+    ctx.scale(b.scale, b.scale);
+
+    // 地面阴影
+    if (state === 'count') {
+      ctx.beginPath();
+      ctx.ellipse(0, h * 0.84, w * 0.92, h * 0.28, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(190,150,110,0.16)';
+      ctx.filter = 'blur(5px)';
+      ctx.fill();
+      ctx.filter = 'none';
+    }
+
+    beanPath(w, h);
+
+    // 光晕
+    if (b.counted) {
+      const pulse = 0.55 + 0.45 * Math.sin(b.countedAt * 5.5);
+      ctx.shadowColor = 'rgba(111,216,176,' + (0.5 + 0.4 * pulse).toFixed(3) + ')';
+      ctx.shadowBlur  = 48;
+    } else {
+      ctx.shadowColor = 'rgba(232,178,124,0.55)';
+      ctx.shadowBlur  = 24;
+      ctx.shadowOffsetY = 5;
+    }
+
+    const g = ctx.createLinearGradient(-w * 0.6, -h, w * 0.7, h);
+    g.addColorStop(0,    '#FFF7E9');
+    g.addColorStop(0.36, '#F9E3BC');
+    g.addColorStop(0.72, '#EBC691');
+    g.addColorStop(1,    '#CB9D63');
+    ctx.fillStyle = g;
+    ctx.fill();
+
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.shadowColor = 'transparent';
+
+    // 内部高光 / 暗部
+    ctx.save();
+    ctx.clip();
+
+    const hg = ctx.createRadialGradient(
+      -w * 0.34, -h * 0.50, 0,
+      -w * 0.34, -h * 0.50, w * 1.35
+    );
+    hg.addColorStop(0,    'rgba(255,255,255,0.92)');
+    hg.addColorStop(0.42, 'rgba(255,255,255,0.18)');
+    hg.addColorStop(1,    'rgba(255,255,255,0)');
+    ctx.fillStyle = hg;
+    ctx.fillRect(-w * 1.8, -h * 1.8, w * 3.6, h * 3.6);
+
+    const dg = ctx.createLinearGradient(0, h * 0.22, 0, h);
+    dg.addColorStop(0, 'rgba(140,90,35,0)');
+    dg.addColorStop(1, 'rgba(130,80,30,0.34)');
+    ctx.fillStyle = dg;
+    ctx.fillRect(-w * 1.8, -h * 1.8, w * 3.6, h * 3.6);
+
+    ctx.restore();
+
+    // 轮廓
+    beanPath(w, h);
+    ctx.strokeStyle = b.counted
+      ? 'rgba(80,200,155,0.9)'
+      : 'rgba(170,124,74,0.5)';
+    ctx.lineWidth = Math.max(1.3, w * 0.04);
+    ctx.stroke();
+
+    // 豆脐
+    ctx.beginPath();
+    ctx.moveTo(w * 0.27, -h * 0.60);
+    ctx.quadraticCurveTo(w * 0.70, 0, w * 0.27, h * 0.60);
+    ctx.strokeStyle = 'rgba(172,122,62,0.28)';
+    ctx.lineWidth = Math.max(1, w * 0.055);
+    ctx.lineCap = 'round';
+    ctx.stroke();
+
+    // 可爱小眼睛
+    const eyeY = -h * 0.08;
+    const eyeR = w * 0.108;
+    const eyeDX = w * 0.235;
+
+    ctx.beginPath();
+    ctx.arc(-eyeDX, eyeY, eyeR, 0, Math.PI * 2);
+    ctx.arc( eyeDX, eyeY, eyeR, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(112,74,44,0.82)';
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(-eyeDX + eyeR * 0.34, eyeY - eyeR * 0.36, eyeR * 0.36, 0, Math.PI * 2);
+    ctx.arc( eyeDX + eyeR * 0.34, eyeY - eyeR * 0.36, eyeR * 0.36, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.96)';
+    ctx.fill();
+
+    // 腮红
+    ctx.beginPath();
+    ctx.arc(-w * 0.52, eyeY + h * 0.20, w * 0.148, 0, Math.PI * 2);
+    ctx.arc( w * 0.56, eyeY + h * 0.20, w * 0.148, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,158,148,0.42)';
+    ctx.fill();
+
+    // 小嘴
+    ctx.beginPath();
+    ctx.arc(0, eyeY + h * 0.16, w * 0.135, 0.14 * Math.PI, 0.86 * Math.PI);
+    ctx.strokeStyle = 'rgba(112,74,44,0.6)';
+    ctx.lineWidth = Math.max(1, w * 0.06);
+    ctx.lineCap = 'round';
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  /* ==================== 光影辉光（豆子下方） ==================== */
+  function drawHaloGlow() {
+    if (!halo.visible || halo.alpha <= 0) return;
+
+    ctx.save();
+    ctx.globalAlpha = halo.alpha;
+
+    const g = ctx.createRadialGradient(
+      halo.x, halo.y, halo.r * 0.5,
+      halo.x, halo.y, halo.r * 3.0
+    );
+    g.addColorStop(0,    'rgba(120,235,200,0.36)');
+    g.addColorStop(0.45, 'rgba(120,235,200,0.13)');
+    g.addColorStop(1,    'rgba(120,235,200,0)');
+
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(halo.x, halo.y, halo.r * 3.0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  /* ==================== 光影光环（豆子上方） ==================== */
+  function drawHaloRing() {
+    if (!halo.visible || halo.alpha <= 0) return;
+
+    const x = halo.x, y = halo.y, r = halo.r;
+    const now = performance.now();
+    const pulse = 0.5 + 0.5 * Math.sin(now / 170);
+
+    ctx.save();
+    ctx.globalAlpha = halo.alpha;
+
+    // 旋转虚线光环
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(now / 880);
+    ctx.beginPath();
+    ctx.setLineDash([r * 0.5, r * 0.38]);
+    ctx.lineWidth = Math.max(2.4, r * 0.10);
+    ctx.strokeStyle = 'rgba(150,255,225,0.95)';
+    ctx.shadowColor = 'rgba(111,216,176,1)';
+    ctx.shadowBlur  = 26;
+    ctx.arc(0, 0, r * 1.62, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    // 脉冲实心环
+    ctx.beginPath();
+    ctx.arc(x, y, r * 1.30 + pulse * r * 0.07, 0, Math.PI * 2);
+    ctx.lineWidth = Math.max(1.8, r * 0.08);
+    ctx.strokeStyle = 'rgba(205,255,240,' + (0.68 + 0.32 * pulse).toFixed(3) + ')';
+    ctx.shadowColor = 'rgba(111,216,176,1)';
+    ctx.shadowBlur  = 34;
+    ctx.stroke();
+
+    // 十字星光
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(now / 1600);
+    ctx.strokeStyle = 'rgba(255,255,255,0.74)';
+    ctx.lineWidth = Math.max(1.5, r * 0.055);
+    ctx.lineCap = 'round';
+    const L = r * 2.05;
+    ctx.beginPath();
+    ctx.moveTo(-L, 0); ctx.lineTo(L, 0);
+    ctx.moveTo(0, -L); ctx.lineTo(0, L);
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.restore();
+  }
+
+  /* ==================== 已数序号徽章 ==================== */
+  function drawBadges() {
+    for (const b of beans) {
+      if (!b.counted) continue;
+
+      const appear = Math.min(b.countedAt / 0.26, 1);
+      if (appear <= 0) continue;
+      const s = 0.35 + 0.65 * (1 - Math.pow(1 - appear, 3));
+
+      const br = b.r * 0.46;
+      let bx = b.dx + b.r * 1.02;
+      let by = b.dy - b.r * 1.02;
+
+      if (bx + br > W - 10) bx = b.dx - b.r * 1.02;
+      if (by - br < 10)     by = b.dy + b.r * 1.02;
+
+      ctx.save();
+      ctx.translate(bx, by);
+      ctx.scale(s, s);
+
+      ctx.beginPath();
+      ctx.arc(0, 0, br, 0, Math.PI * 2);
+      ctx.fillStyle = '#6FD8B0';
+      ctx.shadowColor = 'rgba(111,216,176,0.95)';
+      ctx.shadowBlur  = 24;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      ctx.beginPath();
+      ctx.arc(0, 0, br * 0.80, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255,255,255,0.78)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '900 ' + (br * 1.2).toFixed(0) +
+                 'px "Yuanti SC","PingFang SC","Microsoft YaHei",sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String(b.number), 0, br * 0.06);
+
+      ctx.restore();
+    }
+  }
+
+  /* ==================== 渲染 ==================== */
+  function render() {
+    drawBackground();
+    computePositions();
+
+    drawHaloGlow();
+
+    for (const b of beans) drawBean(b);
+
+    drawHaloRing();
+    drawBadges();
+  }
+
+  /* ==================== 主循环 ==================== */
+  let lastTime = performance.now();
+
+  function loop(now) {
+    let dt = (now - lastTime) / 1000;
+    lastTime = now;
+    if (dt > 0.05) dt = 0.05;
+    if (dt < 0)    dt = 0;
+
+    update(dt);
+    render();
+    requestAnimationFrame(loop);
+  }
+
+  /* ==================== 交互 ==================== */
+  startBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (state !== 'idle') return;
+    startWrap.classList.add('hide');
+    startRound();
+  });
+
+  againBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    totalPanel.classList.remove('show');
+    fxLayer.innerHTML = '';
+
+    beans = [];
+    total = 0;
+    halo.visible = false;
+    halo.alpha = 0;
+
+    state = 'idle';
+    timerEl.classList.remove('show');
+    hintEl.classList.remove('show', 'scanning');
+
+    startWrap.classList.remove('hide');
+  });
+
+  /* ==================== 尺寸变化 ==================== */
+  let resizeTimer = null;
+  window.addEventListener('resize', function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function () {
+      resize();
+    }, 130);
+  });
+
+  /* ==================== 启动 ==================== */
+  resize();
+  requestAnimationFrame(loop);
+
+})();
+</script>
+</body>
+</html>
